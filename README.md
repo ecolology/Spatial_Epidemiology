@@ -58,12 +58,16 @@ This short course will cover various topics of spatial epidemiology using R soft
 
 Please register your interest by sending me an email and answer the following questions using the template below. We have limited spots available.
 
--   **Subject: "**Spatial Epidemiology Course"
+**Subject:** Spatial Epidemiology Course
 
-    **- Name:**
+**- Name:**
 
-    **- Lab group:**
+**- Lab group:**
 
-    **- PhD year:**
+**- PhD year:**
 
-    **- Do you use spatial analysis in your research?**
+**- Do you use spatial analysis in your research?**
+
+## **Course Preparation**
+
+Please be sure to have at least version 4.2 --- *and preferably version 4.3* --- of `R` installed. Note that `R` and `RStudio` are two different things: it is not sufficient to just update `RStudio`, you also need to update `R` by installing new versions as they are released.
