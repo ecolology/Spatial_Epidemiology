@@ -14,18 +14,18 @@ This short course will cover various topics of spatial epidemiology using R soft
 
 **20th November**
 
--   Introduction to spatial epidemiology and geoprocessing basic concepts. 
+-   Introduction to spatial epidemiology and geoprocessing basic concepts -  Prof Cassiano Victória
 
     -   Types of spatial health (areal, point, temporal, presence-only, presence-absence, abundance, incidence) and covariate data. 
     -   Review of autocorrelation, confounding and detection error
 
--   Spatial Data Visualisation 
+-   Spatial Data Visualisation - Dr Tatiana Proboste
 
     -   Accessing open data 
     -   Transformations, CRS, extraction, calculation 
     -   Spatial data wrangling 
 
--   Data exploration: analysing disease clustering 
+-   Data exploration: analysing disease clustering - Dr Kei Owada
 
     -   Clustering for point data
     -   Clustering for areal data (global and local)
@@ -33,7 +33,7 @@ This short course will cover various topics of spatial epidemiology using R soft
 
 **21st November**
 
--   Point data case study: geostatistical modelling 
+-   Point data case study: geostatistical modelling  - As/Prof Benn Sartorius
 
     -   Exploratory analysis for covariate selection
     -   Geostatistical model formulation and parameter estimation\
@@ -41,7 +41,7 @@ This short course will cover various topics of spatial epidemiology using R soft
     -   Model validation
     -   Assessment of the contribution of covariates to spatial prediction
 
--   Geographically Weighted Regression (GWR) 
+-   Geographically Weighted Regression (GWR) -  Dr Behzad Kiani
 
     -   Global and Local Regression Models
     -   GWR Modelling in Details
@@ -54,19 +54,6 @@ This short course will cover various topics of spatial epidemiology using R soft
 
 **Location:** ​​​​​​ UQ St Lucia campus.
 
-## How to register
-
-Please register your interest by sending me an email and answer the following questions using the template below. We have limited spots available.
-
-**Subject:** Spatial Epidemiology Course
-
-**- Name:**
-
-**- Lab group:**
-
-**- PhD year:**
-
-**- Do you use spatial analysis in your research?**
 
 ## **Course Preparation**
 
