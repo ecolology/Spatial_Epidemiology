@@ -36,7 +36,7 @@ This short course will cover various topics of spatial epidemiology using R soft
 -   Point data case study: geostatistical modelling  - As/Prof Benn Sartorius
 
     -   Exploratory analysis for covariate selection
-    -   Geostatistical model formulation and parameter estimation\
+    -   Geostatistical model formulation and parameter estimation
     -   Spatial prediction
     -   Model validation
     -   Assessment of the contribution of covariates to spatial prediction
