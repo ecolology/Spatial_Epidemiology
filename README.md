@@ -6,7 +6,7 @@ Spatial Epidemiology short course
 
 ## **Course outline**
 
-This **free ** short course will cover various topics of spatial epidemiology using R software, including modelling, mapping, cluster analysis, ecological suitability model mapping, and Geographically Weighted Regression. This is an in-person course and involves hands-on practical sessions. The course will not be offered for remote attendance. Attendees will be required to bring their own laptops for practical sessions. 
+This **free** short course will cover various topics of spatial epidemiology using R software, including modelling, mapping, cluster analysis, ecological suitability model mapping, and Geographically Weighted Regression. This is an in-person course and involves hands-on practical sessions. The course will not be offered for remote attendance. Attendees will be required to bring their own laptops for practical sessions. 
 
 **Target audience:** This course is aimed at higher-degree research students and early career researchers. Participants are recommended to have prior knowledge of RStudio.
 
