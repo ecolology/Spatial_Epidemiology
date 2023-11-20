@@ -6,7 +6,9 @@ library(tmap) # map visualisations
 library(leaflet) # leaflet maps 
 library(terra) # spatial data analysis with raster  
 #install.packages("remotes") 
-#remotes::install_github("wfmackey/absmapsdata")
+#remotes::install_github("wfmackey/absmapsdata") # tons of data in package!
+# remotes::install_github("runapp-aus/strayr") # loads the data with strayr::read_absmap("sa42021")
+library(strayr)
 library(geodata)
 
 
@@ -16,37 +18,35 @@ aus <- ozmaps::ozmap('abs_ced') # Map of Australia
 head(aus)
 
 library(Census2016)
-census <- Census2016::Census2016_wide_by_SA2_year
+census <- Census2016::Census2016_wide_by_SA2_year %>% 
+  filter(year == 2016)
 head(census)
 
-# only 2016
-census <- census %>% filter(year == 2016)
-
 library(absmapsdata)
-absmapsdata::absmapsdata_file_list
-aus2016 <- absmapsdata::sa22016
+# absmapsdata::absmapsdata_file_list
+# aus2016 <- absmapsdata::sa22016
+aus2016 <- strayr::read_absmap(area = "sa2", year = 2016)
 head(aus2016)
 
-ft <- read_csv("./raw_data/Farm_transparency.csv") 
+ft <- readr::read_csv("raw_data/Farm_transparency.csv") %>%
+  janitor::clean_names()
 head(ft)
 
 
 library(skimr)
 skim(ft)
 
-ft <- janitor::clean_names(ft) 
-head(ft)
-
 ggplot(ft, aes(x=lng, y=lat, color= type))+ 
   geom_point()+  
   theme_bw()
 
 # this is a tibble, so if we use tmap, this is not going to work
-tmap::tm_shape(ft)+
-  tm_dots()
+# tmap::tm_shape(ft) +
+#   tm_dots()
 
-# Now we transfom the tible to a spatial data using sf
-ft_s <-  sf::st_as_sf(ft,coords = c('lng', 'lat'), crs = 4326) # WGS 84
+# Now we transfom the tibble to a spatial data using sf
+ft_s <-  ft %>%
+  sf::st_as_sf(coords = c('lng', 'lat'), crs = 4326) # WGS 84
 
 st_crs(ft_s) #EPSG:4326 
 
@@ -54,15 +54,15 @@ ft_s <- st_transform(ft_s, 4283) #GDA94
 st_crs(ft_s) #EPSG:4326 
 
 
-tm_shape(ft_s)+ 
+tm_shape(ft_s) + 
   tm_dots(col = 'type', size = 0.1, title = "farms in Australia",  palette = "RdBu" )
 
 
-tmap_mode('view')  # use 'plot' to turn off the interactive view
+tmap_mode('view')  # use 'plot' to turn off the interactive view with Leaflet!
 
 tm_shape(ft_s)+  
   tm_dots(col = 'type', size = 0.1, 
-          title = "farms in Australia", 
+          title = "Farms of Australia", 
           palette = "RdBu" )
 
 tmap_mode('plot')  # turn off the interactive view of tmap
@@ -77,14 +77,19 @@ qld <- aus2016 %>%
 qld
 plot(qld)
 
-# we do not need all of those variables, so we will keep only SA2_code_201
-qld <- qld %>% 
-  dplyr::select(sa2_code_2016)
+# we do not need all of those variables, so we will plot only SA2_code_2016
+qld %>% 
+  dplyr::select(sa2_code_2016) %>%
+  plot()
 
-plot(qld)
+# tm_shape(qld)+
+#   tm_polygons()
 
-tm_shape(qld)+
-  tm_polygons()
+
+qld %>%
+  ggplot() +
+  geom_sf(aes(geometry = geometry, fill = sa2_code_2016),
+          show.legend = FALSE)
 
 # the shape contains empty units
 # Check for empty units
@@ -92,21 +97,21 @@ st_is_empty(qld) # The shape qld contains empty units.
 
 qld <- qld %>% filter (!st_is_empty(.))
 
-tm_shape(qld)+
-  tm_polygons()
-
-tm_shape(qld) + 
-  tm_polygons(col = "grey10", alpha = 0.1)+
-  tm_shape(ft_s)+ 
-  tm_dots(col = 'type',      
-          size = 0.1,  
-          title = "Farms in QLD",        
-          palette = "RdBu") +  
-  tm_layout(legend.position = c('right', 'top'),   
-            legend.outside = TRUE)+ 
-  tm_compass(position = c('right', 'top'))+ 
-  tm_grid(lines = F)+   
-  tm_scale_bar(text.size = 1, position = c('left', 'bottom'))
+# tm_shape(qld)+
+#   tm_polygons()
+# 
+# tm_shape(qld) + 
+#   tm_polygons(col = "grey10", alpha = 0.1)+
+#   tm_shape(ft_s)+ 
+#   tm_dots(col = 'type',      
+#           size = 0.1,  
+#           title = "Farms in QLD",        
+#           palette = "RdBu") +  
+#   tm_layout(legend.position = c('right', 'top'),   
+#             legend.outside = TRUE)+ 
+#   tm_compass(position = c('right', 'top'))+ 
+#   tm_grid(lines = F)+   
+#   tm_scale_bar(text.size = 1, position = c('left', 'bottom'))
 
 
 # Now lets focus on only piggeries in QLD and calculate how many piggeries we have
@@ -114,9 +119,10 @@ tm_shape(qld) +
 names(ft_s)
 unique(ft_s$type)
 
-farms <- ft_s %>% filter(type == c('Pigs', 'Dairy', 'Broiler (Meat) Chickens',
+farms <- ft_s %>% 
+  filter(type %in% c('Pigs', 'Dairy', 'Broiler (Meat) Chickens',
                                    'Cattle (Beef)', 'Horse Racing') &
-                           state=='QLD')
+        state=='QLD')
 head(farms)
 
 # add the census to a spatial layer
@@ -125,54 +131,46 @@ head(farms)
 names(qld)
 names(census)
 
-census_qld <- qld %>% left_join(census, by =c('sa2_code_2016'='sa2_code'))
-
-qld$sa2_code_2016 <- as.integer(qld$sa2_code_2016)
-
-census_qld <- qld %>% left_join(census, by =c('sa2_code_2016'='sa2_code')) 
+census_qld <- qld %>% 
+  dplyr::select(sa2_code_2016) %>%
+  mutate(sa2_code_2016 = as.integer(sa2_code_2016)) %>%
+  left_join(census, by=c('sa2_code_2016'='sa2_code'))
 head(census_qld)
 
 
 # now we need the number of piggeries per SA2
-farms_sa2 <- farms %>% st_join(census_qld)
-
 #change the CRS
-farms <- st_transform(farms, st_crs(census_qld)) #GDA94 
-
 farms_sa2 <- farms %>% 
+  st_transform(st_crs(census_qld)) %>% #GDA94 
   st_join(census_qld) 
-
-census_qld$farms <- lengths(st_intersects(census_qld, farms_sa2))
-
-
-# add the new column of piggeries incidence
-census_qld <- census_qld %>% 
-  mutate(incidence = farms/persons)
-
-head(census_qld)
+ 
+  
+census_qld2 <- census_qld %>% 
+  mutate(farms = lengths(st_intersects(census_qld, farms_sa2)),
+         incidence = farms/persons) # add the new column of piggeries incidence
 
 # map the incidence
-
-tm_shape(census_qld)+
-  tm_polygons(col = 'farms')+
-  tm_shape(farms_sa2)+
-  tm_dots()
-
-
-
-tm_shape(census_qld) + 
-  tm_polygons() +
-  tm_bubbles(size = "farms")
+census_qld2 %>%
+  ggplot() +
+  geom_sf(aes(fill = farms)) +
+  scale_fill_viridis_c() +
+  geom_sf(data = farms_sa2, color = "grey", size=0.2, alpha = 0.2)
 
 
-tmap_style("natural") #natural, cobalt
 
-tm_shape(census_qld) +
-  tm_polygons("farms", title = "Farms", style = "cont") +
-  tm_layout(legend.outside = TRUE) +
-  tm_scale_bar(position = c("left", "bottom")) + # add scale bar to the top right
-  tm_compass(type = "arrow",
-             position = c("right", "top"))
+# tm_shape(census_qld) + 
+#   tm_polygons() +
+#   tm_bubbles(size = "farms")
+
+
+# tmap_style("natural") #natural, cobalt
+
+# tm_shape(census_qld) +
+#   tm_polygons("farms", title = "Farms", style = "cont") +
+#   tm_layout(legend.outside = TRUE) +
+#   tm_scale_bar(position = c("left", "bottom")) + # add scale bar to the top right
+#   tm_compass(type = "arrow",
+#              position = c("right", "top"))
 
 
 # -------------------------------------------------------------------------
@@ -289,7 +287,7 @@ tm_shape(tmin_qld)+
 
 points <- ft %>% select(lng, lat,type, state) %>% 
   filter(state =='QLD' & 
-           type == c('Pigs', 'Dairy', 'Broiler (Meat) Chickens',
+           type %in% c('Pigs', 'Dairy', 'Broiler (Meat) Chickens',
                    'Cattle (Beef)', 'Horse Racing')) %>% 
   sf::st_as_sf(coords = c('lng', 'lat'), crs = 4326) # WGS 84
   
