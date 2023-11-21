@@ -10,38 +10,41 @@
 
 #Tutorial source: https://github.com/giorgilancs/covariates/
 
-#"TZ_2015.csv" is the file containing the data. Each row corresponds to a sampled community with total number of tested people ("Ex"), nuber of positive cases ("Pf") and geographical locations. The column "utm_x" is the x-coordinate and "utm_y" is the y-coordinate in UTM; longitude and latitude are also reported in "Long" and "Lat", respectively. The name of the covariates in the data correspond to the same names and abbreviation used in the main manuscript.
-
+#"TZ_2015.csv" is the file containing the data. Each row corresponds to a sampled community with total number of tested people ("ex"), nuber of positive cases ("pf") and geographical locations. The column "utm_x" is the x-coordinate and "utm_y" is the y-coordinate in UTM; longitude and latitude are also reported in "lon" and "lat", respectively. The name of the covariates in the data correspond to the same names and abbreviation used in the main manuscript.
 #"TZ_2015_fit.RData" is an R object containing the fitted geostatistical model that is loaded within the R code of "Part 3 - Spatial prediction.R".
-
 #"pred_objects.RData" is an R object containing the prediction locations and the values of the covariates at those locations, that are used in "Part 3 - Spatial prediction.R".
 
-rm(list=ls())
+library(tidyverse)
 library(PrevMap)
 library(mgcv)
-library(ggplot2)
 library(splines)
+library(ggcorrplot)
 
-setwd("C:/Users/uqbsarto/OneDrive - The University of Queensland/Documents/Benn/Teaching/Geostatistical modelling/")
 
-##Part 1: exploring relationships between covariates and prevalence; 
-##testing for residual spatial correlation.
+#### Part 1: Exploring covariates vs. prevalence ####
+## & testing for residual spatial correlation.
 
-tz <- read.csv("TZ_2015.csv")
+tz <- read.csv("TZ_2015.csv") %>% 
+  janitor::clean_names() %>%
+  rename(lon = long, temp = temperature) %>%
+  mutate(log_population = log(population), .after = population) %>%
+  mutate(log_precipitation = log(precipitation), .after = precipitation) %>%
+  mutate(logit_pf = log((pf+0.5)/(ex-pf+0.5)))
+names(tz)
+skimr::skim(tz)
+# ex - number tested
+# pf - number of positive cases
+# pf_pr2_10 - prevalence rate, adjusted to age of 2-10
 
-tz$'log-Population' <- tz$log.Population <- log(tz$Population)
-tz$'log-Precipitation' <- tz$log.Precipitation <- log(tz$Precipitation)
 
 ##empirical logit transform
-tz$logit <- log((tz$Pf+0.5)/(tz$Ex-tz$Pf+0.5))
-tz$log.Population <- log(tz$Population)
-tz$log.Precipitation <- log(tz$Precipitation)
+
+
 
 head(tz)
 
-ggplot(tz, aes(x=Long, y=Lat))+ 
-  geom_point()+  
-  theme_bw()
+ggplot(tz, aes(x=lon, y=lat))+ 
+  geom_point(aes(color = logit_pf))
 
 library(leaflet)
 library(viridis)
@@ -49,33 +52,33 @@ library(viridis)
 pal <- colorBin("viridis", bins = c(0, 0.25, 0.5, 0.75, 1))
 leaflet(tz) %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
-  addCircles(lng = ~Long, lat = ~Lat, color = ~ pal(logit)) %>%
+  addCircles(lng = ~lon, lat = ~lat, color = ~ pal(logit_pf)) %>%
   addLegend("bottomright",
-    pal = pal, values = ~logit,
+    pal = pal, values = ~logit_pf,
     title = "Logit."
   ) %>%
   addScaleBar(position = c("bottomleft"))
 
 # Temperature
-plot.temp <- ggplot(tz, aes(x = Temperature, 
-                            y = logit)) + geom_point() +
-  labs(x="Temperature",y="Empirical logit")+
+plot_temp <- ggplot(tz, aes(x = temp, 
+                            y = logit_pf)) + geom_point() +
+  labs(x="Temperature (°C)",y="Empirical logit of cases")+
   stat_smooth(method = "gam", formula = y ~ s(x),se=FALSE)+
   stat_smooth(method = "lm", formula = y ~ x,
               col="green",lty="dashed",se=FALSE)
 
 # EVI
-plot.evi <- ggplot(tz, aes(x = EVI, 
-                           y = logit)) + geom_point() +
-  labs(x="EVI",y="Empirical logit")+
+plot_evi <- ggplot(tz, aes(x = evi, 
+                           y = logit_pf)) + geom_point() +
+  labs(x="Landsat Enhanced Vegetation Index (i.e. greenness)",y="Empirical logit of cases")+
   stat_smooth(method = "gam", formula = y ~ s(x),se=FALSE)+
   stat_smooth(method = "lm", formula = y ~ x + I((x-0.35)*(x>0.35)),
               col="red",lty="dashed",se=FALSE)
 
 # NTL
-plot.ntl <- ggplot(tz, aes(x = NTL, 
-                           y = logit)) + geom_point() +
-  labs(x="Night-time light",y="Empirical logit")+
+plot_ntl <- ggplot(tz, aes(x = ntl, 
+                           y = logit_pf)) + geom_point() +
+  labs(x="Night-time light",y="Empirical logit of cases")+
   stat_smooth(method = "gam", formula = y ~ s(x),se=FALSE)+
   stat_smooth(method = "lm", formula = y ~ x + I((x-9)*(x>9)),
               col="red",lty="dashed",se=FALSE)+
@@ -83,17 +86,17 @@ plot.ntl <- ggplot(tz, aes(x = NTL,
               col="green",lty="dashed",se=FALSE)
 
 # Population
-plot.pop <- ggplot(tz, aes(x = log.Population, 
-                           y = logit)) + geom_point() +
-  labs(x="log-Population",y="Empirical logit")+
+plot_pop <- ggplot(tz, aes(x = log_population, 
+                           y = logit_pf)) + geom_point() +
+  labs(x="log_population",y="Empirical logit of cases")+
   stat_smooth(method = "gam", formula = y ~ s(x),se=FALSE)+
   stat_smooth(method = "lm", formula = y ~ x ,
               col="green",lty="dashed",se=FALSE)
 
 # Precipitation
-plot.prec <- ggplot(tz, aes(x = log.Precipitation, 
-                            y = logit)) + geom_point() +
-  labs(x="log-Precipitation",y="Empirical logit")+
+plot_prec <- ggplot(tz, aes(x = log_precipitation, 
+                            y = logit_pf)) + geom_point() +
+  labs(x="log-Precipitation",y="Empirical logit of cases")+
   stat_smooth(method = "gam", formula = y ~ s(x),se=FALSE)+
   stat_smooth(method = "lm", formula = y ~ x +
                 I((x-6.85)*(x>6.85)),
@@ -101,13 +104,11 @@ plot.prec <- ggplot(tz, aes(x = log.Precipitation,
   stat_smooth(method = "lm", formula = y ~ x,
               col="green",lty="dashed",se=FALSE)
 
-library(ggcorrplot)
-var.names <- c("Temperature",
-               "EVI","NTL","log-Population","log-Precipitation")
+var_names <- c("temp","evi","ntl","log_population","log_precipitation")
 
-plot.cor <- ggcorrplot(corr = cor(tz[,var.names]),
+plot_cor <- ggcorrplot(corr = cor(tz[,var_names]),
                        type = "lower",
-                       ggtheme = ggplot2::theme_minimal,
+                       # ggtheme = ggplot2::theme_minimal,
                        hc.order = FALSE,
                        show.diag = FALSE,
                        outline.col = "white",
@@ -115,145 +116,145 @@ plot.cor <- ggcorrplot(corr = cor(tz[,var.names]),
                        legend.title = "Correlation",
                        tl.cex = 11, tl.srt = 55)
 
-library(gridExtra)
-grid.arrange(plot.temp,plot.evi,
-             plot.pop,plot.ntl,
-             plot.prec,plot.cor)
+gridExtra::grid.arrange(
+  plot_temp, plot_evi, 
+  plot_pop, plot_ntl, 
+  plot_prec, plot_cor)
 
 # Testing for residual spatial correlation
 # using the variogram
-spat.corr.diagnostic(Pf ~ 1,
-                     units.m = ~ Ex,
+spat.corr.diagnostic(pf ~ 1,
+                     units.m = ~ ex,
                      coords = ~utm_x+utm_y,
                      likelihood = "Binomial",
                      data=tz)
 
-spat.corr.diagnostic(Pf ~ Temperature+
-                       EVI+I((EVI-0.36)*(EVI-0.35))+
-                       NTL+I((NTL-9)*(NTL>9))+
-                       log.Population+
-                       log.Precipitation+I((log.Precipitation-6.85)*
-                                           (log.Precipitation>6.85)),
-                     units.m = ~ Ex,
+spat.corr.diagnostic(pf ~ temp +
+                       evi+I((evi-0.36)*(evi-0.35))+
+                       ntl+I((ntl-9)*(ntl>9))+
+                       log_population+
+                       log_precipitation+I((log_precipitation-6.85)*
+                                           (log_precipitation>6.85)),
+                     units.m = ~ ex,
                      coords = ~utm_x+utm_y,
                      likelihood = "Binomial",
                      data=tz)
 
-##Part 2: carrying out the fitting of the geostatistical model using the Monte carlo maximum likelihood method.
-
-rm(list=ls())
-
-library(PrevMap)
-library(splines)
-tz <- read.csv("TZ_2015.csv")
-tz$log.Population <- log(tz$Population)
-tz$log.Precipitation <- log(tz$Precipitation)
-
-# For a tutorial on the use of PrevMap type the following:
-# vignette("PrevMap")
+#### Part 2: Fitting MC-ML geostatistical model ####
 
 # Obtain starting values for the regression coefficients
-glm.fit <- 
-  glm(cbind(Pf,Ex-Pf) ~
-        Temperature+
-        EVI+
-        I((EVI-0.35)*(EVI>0.35))+
-        NTL + 
-        log(Population)+
-        log(Precipitation),
-      family=binomial,data=tz)
+glm_mod <- 
+  glm(cbind(pf, ex-pf) ~
+        temp +
+        evi +
+        I((evi-0.35)*(evi>0.35)) + # broken stick model after threshold of 0.35
+        ntl + 
+        log_population+
+        log_precipitation,
+      family=binomial, data = tz)
 
-summary(glm.fit)
+summary(glm_mod)
 
-# Monte Carlo maximum likleihood estimation
+# This is good, but doesn't account for spatial autocorrelation yet...
+
+
+# Monte Carlo maximum likelihood model of spatial autocorrelation
 
 # Parameters of the importance sampling distribution
-par0 <- c(coef(glm.fit),3.5,100,1)
+sigma2 = 3.5
+phi = 100
+tau2 = 1
+par0 <- c(coef(glm_mod), sigma2, phi, tau2) 
+# c(beta [covariate params], sigma2, phi, tau2)
+# covariance priors used below = c(phi, nu^2 = tau^2 / sigma^2)
 
 # Number of covariates
-p <- length(coef(glm.fit))
-
-fit.MCML <- list()
-fit.MCML$log.lik <- Inf
-done <- FALSE
+p <- length(coef(glm_mod))
 
 # Monte Calo maximum likelihood estimation
 
 # Control parameters of the Monte Carlo algorithm
-control.mcmc <- control.mcmc.MCML(n.sim=20000,burnin=10000,
-                                  thin=10)
+control_mcmc <- 
+  PrevMap::control.mcmc.MCML(
+    n.sim=20000,
+    burnin=10000,
+    thin=10)
 
 # Fitting of the model
-fit.MCML <- 
-  binomial.logistic.MCML(Pf ~
-                           Temperature+
-                           EVI+
-                           I((EVI-0.35)*(EVI>0.35))+
-                           NTL + 
-                           log(Population)+
-                           log(Precipitation),
-                         par0=par0,
-                         start.cov.pars = c(par0[p+2],par0[p+3]/par0[p+1]),
-                         coords=~utm_x+utm_y,
-                         units.m=~Ex,
-                         control.mcmc = control.mcmc,
-                         kappa=0.5,method="nlminb",
-                         data=tz)
+fit_MCML <- 
+  PrevMap::binomial.logistic.MCML(
+    pf ~
+      temp +
+      evi +
+      I((evi-0.35)*(evi>0.35)) + # broken stick
+      ntl + 
+      log_population +
+      log_precipitation,
+    par0 = par0,
+    start.cov.pars = c(phi, tau2/sigma2), # phi (scale of [exponential] spatial correlation) and nu2 (nugget, tau^2 / sigma^2)
+    coords = ~utm_x+utm_y, # accounting for effect of coordinate
+    units.m = ~ex,
+    control.mcmc = control_mcmc,
+    kappa = 0.5, # related to Matern correlation
+    method = "nlminb",
+    data=tz)
 
-variog.diagnostic.glgm(
-fit.MCML,
-n.sim = 200,
-uvec = NULL,
-plot.results = TRUE,
-which.test = "both"
+PrevMap::variog.diagnostic.glgm(
+  fit_MCML,
+  n.sim = 200,
+  uvec = NULL,
+  plot.results = TRUE,
+  which.test = "both"
 )
 
-summary(fit.MCML)
+summary(fit_MCML)
 
-save(fit.MCML,file="TZ_2015_fit.RData")
+save(fit_MCML, file="TZ_2015_fit.RData")
 
-##Part 3: carrying out the spatial prediction of prevalence over a regular grid.
 
-rm(list=ls())
 
-library(PrevMap)
-library(splines)
-tz <- read.csv("TZ_2015.csv")
+#### Part 3: Spatial kriging of prevalence ####
 
 # Loading of the fitted model saved in "2 - Parameter estimation"
 load("TZ_2015_fit.RData")
 
 # Loading of the prediction grid ("grid.pred")
 # and values of the covariates at prediction locations ("predictors")
-
 load("pred_objects.RData")
 
-head(predictors)
+grid_pred <- grid.pred
 
-colnames(predictors)[colnames(predictors) == "Precipitaation"] ="Precipitation"
+predictors <- predictors %>%
+  janitor::clean_names() %>%
+  rename(precipitation = precipitaation,
+         temp = temperature) %>%
+  mutate(precipitation = precipitation*365) %>%
+  mutate(log_population = log(population), .after = population) %>%
+  mutate(log_precipitation = log(precipitation), .after = precipitation)
+names(predictors)
+skimr::skim(predictors)
 
-predictors$Precipitation <- predictors$Precipitation*365
-colnames(predictors)[colnames(predictors) == "population"] ="Population"
 
-predictors$log.Population <- log(predictors$Population)
-predictors$log.Precipitation <- log(predictors$Precipitation)
 
 # Control parameters of the Monte Carlo Markox chain
-control.mcmc <- control.mcmc.MCML(n.sim=110000,
-                                  burnin=10000,
-                                  thin=10)
+control_mcmc <- PrevMap::control.mcmc.MCML(
+  n.sim = 110000,
+  burnin = 10000,
+  thin = 10)
 
 # Spatial prediction of prevalence over the prediction locations
-pred.MCML <- 
-  spatial.pred.binomial.MCML(fit.MCML,grid.pred=grid.pred,
-                             predictors = predictors,
-                             control.mcmc = control.mcmc,
-                             scale.predictions = "prevalence",
-                             thresholds = 0.3,
-                             scale.thresholds = "prevalence")
+krig_MCML <- 
+  PrevMap::spatial.pred.binomial.MCML(
+    fit_MCML,
+    grid.pred = grid_pred,
+    predictors = predictors,
+    control.mcmc = control_mcmc,
+    scale.predictions = "prevalence",
+    thresholds = 0.3,
+    scale.thresholds = "prevalence")
 
 # Map of the predicted prevalence 
-plot(pred.MCML,type="prevalence",summary="predictions")
+plot(krig_MCML, type="prevalence", summary="predictions")
 
 # Map of the exceedance probabilities
-plot(pred.MCML,summary="exceedance.prob")
+plot(krig_MCML, summary="exceedance.prob")
